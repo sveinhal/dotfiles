@@ -6,7 +6,7 @@
                 else
                         COL=31m
                 fi
-		PS1="\[\e[${COL}\][\u@\h:\w]\\$ \[\e[0m\]"
+		GIT_PS1_SHOWDIRTYSTATE=1
+		PS1='\[\e[${COL}\][\u@\h:\w]\[\e[32m\]$(__git_ps1)\[\e[0m\]\\$ '
                 ;;
         esac
-
