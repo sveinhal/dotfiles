@@ -1,0 +1,10 @@
+#!/bin/bash
+
+DOTFILEDIR=$HOME/.dotfiles
+DOTFILES=`find $DOTFILEDIR -name "dot.*"`
+
+for f in $DOTFILES; do
+    dst=$HOME/.`basename $f | cut -d. -f2-`
+    test ! -e $dst && ln -s $f $dst || echo "File exists: $dst" >&2
+done
+
