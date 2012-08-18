@@ -1,2 +1,2 @@
 #!/bin/sh
-pmset -g batt | grep Internal | awk '{print $2}' | sed 's/;//'
+pmset -g batt | grep Internal | cut -f2 | cut -d";" -f1,3
