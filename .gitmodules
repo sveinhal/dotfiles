@@ -1,0 +1,3 @@
+[submodule "git/comoyo-gerrit-scripts"]
+	path = git/comoyo-gerrit-scripts
+	url = ssh://sveinhal@gerrit.c.skunk-works.no:29418/scripts
