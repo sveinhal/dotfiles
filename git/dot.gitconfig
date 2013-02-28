@@ -3,6 +3,7 @@
 	email = sveinhal@comoyo.com
 [core]
 	excludesfile = /Users/sveinhal/.gitignore_global
+	whitespace = trailing-space
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
 	path = 
@@ -22,3 +23,10 @@
         wtf     = !$DOTFILESDIR/bin/git-wtf
         rank-contributers = !$DOTFILESDIR/bin/git-rank-contributers
         count   = !git shortlog -sn
+[github]
+	user = sveinhal
+	password = !security find-generic-password -gs github.password -w | tr -d '\n'
+[gist]
+	private = YES
+[diff "localizablestrings"]
+    textconv = "iconv -f utf-16 -t utf-8"
