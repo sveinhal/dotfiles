@@ -11,7 +11,6 @@ case $arch in
         alias su='su -m'
 	   ;;
     Darwin)
-        alias head='/usr/bin/head'
 	   ;;
 esac
 

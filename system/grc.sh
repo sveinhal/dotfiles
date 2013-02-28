@@ -4,5 +4,5 @@ then
   source `brew --prefix`/etc/grc.bashrc
 
   alias head="colourify head"
-  alias head="colourify tail"
+  alias tail="colourify tail"
 fi
