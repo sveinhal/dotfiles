@@ -8,9 +8,10 @@ alias cgrep='grep --color=auto'
 arch=`uname`
 case $arch in
     FreeBSD|Linux)
-	alias su='su -m'
-	;;
+        alias su='su -m'
+	   ;;
     Darwin)
-	;;
+        alias head='/usr/bin/head'
+	   ;;
 esac
 
