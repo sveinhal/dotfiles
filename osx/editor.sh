@@ -1,3 +1,3 @@
 #!/bin/bash
 
-export EDITOR="subl -w"
+export EDITOR="atom"

@@ -8,7 +8,8 @@ fi
 
 # The rest of my fun git aliases
 alias gl='git pull --prune'
-alias glog="git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative"
+alias glog="git log --graph --pretty=format:'%Cred%h%Creset %an: %s - %Creset %C(yellow)%d%Creset %Cgreen(%cr)%Creset' --abbrev-commit --date=relative --no-merges"
+alias changelog="git log --pretty=format:'- %an: %s (%cr)' --abbrev-commit --date=relative --no-merges"
 alias gp='git push origin HEAD'
 alias gd='git diff'
 alias gc='git commit'
