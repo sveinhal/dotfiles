@@ -1,0 +1,138 @@
+#!/bin/bash
+
+tmp=/tmp/`basename $0`.$UID.$$
+
+usage() {
+	echo "Usage: on [-s] [-n] [-e cmd] host [host ...] do command [args ...]"
+	echo "       -s     do all hosts simultaneously"
+	echo "       -n     suppress hosts that didn't produce any output"
+	echo "       -e     command to use instead of ssh (i.e. 'ssh -l root')"
+	echo "              (must be quoted if more than one word)"
+	echo ""
+	echo "example: on clients do 'who|grep `whoami`'"
+	exit 1
+}
+
+dings[0]='-'
+dings[1]='\\'
+dings[2]='|'
+dings[3]='/'
+
+if tty -s; then
+	tty=yes
+fi
+
+if [ "$tty" ]; then
+	showdings() {
+		counter="$[(counter+1)%4]"
+		echo -ne "## ${dings[$counter]}\r"
+	}
+	ctrl-c() {
+		if [ "$lastbreak" = "$SECONDS" ]; then
+			echo "...quitting"
+			exit 1
+		else
+			echo "...skipping $host"
+			lastbreak="$SECONDS"
+		fi
+	}
+else
+	showdings() { :; }
+	ctrl-c() { :; }
+fi
+
+
+
+#OPTIND=1
+#OPTERR=1
+while getopts e:ns arg
+do
+    case "$arg" in
+      n) NFLAG=true;;
+      s) SFLAG=true;;
+      e) SSH="$OPTARG";;
+    esac
+done
+shift $[$OPTIND-1]
+
+if [ -z "$1" ]; then
+  usage
+fi
+
+
+# expand command line arguments
+until [ "$1" = "do" -o -z "$1" ]; do
+  case "$1" in
+    *)			hosts="$hosts $1";;
+  esac
+  shift
+done
+
+if [ -z "$hosts" ]; then
+  usage
+fi
+
+if [ "$1" = "do" ]; then
+  shift
+else
+  usage
+fi
+
+if [ -z "$1" ]; then
+  usage
+fi
+
+
+# main
+if [ "$SFLAG" ];then
+	echo "## Starting '$@' on all hosts"
+	for host in $hosts; do
+		showdings
+		if ping -c 1 $host >&/dev/null; then
+			echo "## $host:" > "$tmp.$host.tag"
+			$SSH -x -n $host "$@" > "$tmp.$host" 2>&1 &
+			tmpfiles="$tmpfiles $tmp.$host.tag $tmp.$host"
+		else
+			echo "## skipping $host (down)" > "$tmp.$host.tag"
+			echo "## skipping $host (down)"
+		fi
+	done
+	echo "## waiting for hosts to finish"
+	wait
+
+	echo "## preparing result"
+	for host in $hosts;do
+		if [ "$NFLAG" ]; then
+			if [ -s "$tmp.$host" ]; then
+				cat "$tmp.$host.tag" "$tmp.$host"
+				echo
+			fi
+		else
+			cat "$tmp.$host.tag" "$tmp.$host"
+			echo
+		fi
+	done > $tmp
+	tmpfiles="$tmpfiles $tmp"
+
+	if [ "$tty" ]; then
+		less $tmp
+	else
+		echo
+		cat $tmp
+	fi
+	rm -f $tmpfiles
+
+else
+
+	trap ctrl-c 2
+	for host in $hosts
+	do
+		if ping -c 1 $host >&/dev/null; then
+			echo "## $host:"
+			$SSH -n $host "$@" 2>&1
+			[ -z "$NFLAG" ] && echo
+		else
+			echo "## skipping $host (down)"
+		fi
+	done
+fi

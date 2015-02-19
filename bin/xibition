@@ -1,0 +1,201 @@
+#!/usr/bin/ruby
+
+require 'rubygems'
+require 'set'
+require 'digest/sha1'
+require 'escape'
+require 'plist'
+require 'stringio'
+
+
+filename = ARGV[0]
+content_xml = %x(#{Escape.shell_command ['ibtool', '--all', filename]})
+if content_xml.nil?
+  puts "File #{Digest::SHA1.hexdigest(File.read(filename))} (no ibtool output)"
+  exit 1
+end
+
+plist = Plist::parse_xml content_xml
+if not plist['com.apple.ibtool.errors'].nil?
+  plist['com.apple.ibtool.errors'].each do |error|
+    $stderr.puts "Error parsing #{filename}: '#{error['description']}'"
+  end
+  puts "File #{Digest::SHA1.hexdigest(File.read(filename))} (ibtool gave errors)"
+  exit 1
+end
+
+
+#
+# Utilities
+#
+$block_indent = ['']
+def with_header(head, options={})
+  options = {:indent => '    ', :prestrip => false}.merge options
+  iputs
+  iputs head, options[:prestrip]
+  $block_indent.push((options[:prestrip] ? $block_indent[-1].rstrip : $block_indent[-1]) + options[:indent])
+  yield
+  $block_indent.pop
+end
+
+def iputs(str='', prestrip=false)
+  indent = $block_indent[-1]
+  indent = indent.rstrip if prestrip
+  puts((indent + str).rstrip)
+end
+
+class Hash
+  def each_sorted_pair(*args)
+    self.keys.sort.each {|key| yield key, self[key] }
+  end
+end
+
+def display_label(obj_def)
+  [obj_def['name'], obj_def['label']].compact.uniq.join(' - ')
+end
+
+def iputs_connections_of_type(obj_id, *types)
+  matching_connections = $connections_by_source_id[obj_id].select {|c| types.include? c['type'] }
+  lines = matching_connections.collect {|conn_def| yield conn_def }.compact
+  unless lines.empty?
+    iputs
+    lines.sort.each {|l| iputs l }
+  end
+end
+
+
+#
+# Classes
+#
+SkipClassNames = [/^NS/, /^IK/, /^OSA/, /^QC/, /^UI/,
+  'FirstResponder', 'IBLibraryObjectTemplate',
+  'ABPeoplePickerView', 'ABPersonView',
+  'ADBannerView',
+  'DRMSFFormatter', 'DiscRecordingPluginWidget',
+  'MKMapView',
+  'PDFView', 'PDFThumbnailView',
+  'QTCaptureView', 'QTMovieView',
+  'WebView']
+
+DISPLAY_FULL_CLASSES = false
+unless DISPLAY_FULL_CLASSES
+  $stdout_save = $stdout.clone
+  $class_output = StringIO.new
+  $stdout = $class_output
+end
+
+classdefs = plist['com.apple.ibtool.document.classes']
+known_class_keys = ['class', 'superclass', 'outlets', 'actions']
+classdefs.each_sorted_pair do |classkey, classdef|
+  next if SkipClassNames.any? {|pat| pat === classdef['class'] }
+  next if classdef['superclass'].nil?
+
+  with_header "@interface #{classdef['class']} : #{classdef['superclass']}", :indent => '' do
+    (classdef['outlets'] || {}).each_sorted_pair do |name, outletclass|
+      iputs ['@property', 'IBOutlet', outletclass, (outletclass == 'id' ? '' : '*') + name].join(' ') + ';'
+    end
+
+    (classdef['actions'] || {}).each_sorted_pair do |sel, id|
+      iputs "- (IBAction)#{sel}(#{id})sender;"
+    end
+  end
+  iputs '@end'
+end
+
+unless DISPLAY_FULL_CLASSES
+  $stdout = $stdout_save
+  puts 'Class definitions ' + Digest::SHA1.hexdigest($class_output.string)
+  $class_output = nil
+end
+
+
+#
+# Index objects and connections
+#
+$connections_by_source_id = Hash.new {|h,k| h[k] = [] }
+plist['com.apple.ibtool.document.connections'].each_pair do |conn_id, conn_def|
+  # The nib encodes the source of an action as the receiver; instead use the sender
+  source_id = (conn_def['type'] == 'IBCocoaActionConnection') ? conn_def['destination-id'] : conn_def['source-id']
+  $connections_by_source_id[source_id] << conn_def
+end
+
+$object_id_map = {}
+plist['com.apple.ibtool.document.objects'].each do |obj_id, obj_def|
+  i18n_def = plist['com.apple.ibtool.document.localizable-all'][obj_id] || {}
+  $object_id_map[obj_id.to_i] = obj_def.merge i18n_def
+end
+
+hierarchy_def_stack = [] + plist['com.apple.ibtool.document.hierarchy']
+until hierarchy_def_stack.empty?
+  hier_def = hierarchy_def_stack.pop
+  obj_def = $object_id_map[hier_def['object-id'].to_i] || {}
+  $object_id_map[hier_def['object-id'].to_i] = obj_def.merge(hier_def.merge({'children' => nil}))
+  hierarchy_def_stack.concat(hier_def['children'] || [])
+end
+
+
+#
+# Print objects
+#
+AttributesTreatedSeparately = Set.new %w[object-id custom-class name label ibShadowedToolTip frameOrigin frameSize children ibExternalUserDefinedRuntimeAttributes]
+def describe_object(hier_def)
+  obj_id = hier_def['object-id'].to_i
+  obj_def = $object_id_map[obj_id]
+
+  obj_id_str = obj_id.to_s.rjust(4)
+  desc = "#{"-" * obj_id_str.length}+ "
+  custom_class = obj_def['custom-class']
+  desc << "(#{custom_class} *) " if custom_class and custom_class != 'FirstResponder'
+  desc << display_label(obj_def)
+
+  with_header desc, :indent => "#{obj_id_str}| ", :prestrip => true do
+    iputs "Attributes: #{attributes_sha1(obj_def)}"
+
+    if obj_def['ibShadowedToolTip']
+      iputs "ToolTip: #{obj_def['ibShadowedToolTip']}"
+    end
+    if obj_def['frameOrigin']
+      iputs "{#{obj_def['frameOrigin']}, #{obj_def['frameSize']}}"
+    end
+
+    if (runtime_attrs = obj_def['ibExternalUserDefinedRuntimeAttributes'])
+      iputs
+      runtime_attrs.each do |attr|
+        loc = (attr['localized'] == 'YES') ? ' (localized)' : ''
+        iputs "[self].#{attr['keyPath']} = #{attr['value'].inspect}" + loc
+      end
+    end
+
+    iputs_connections_of_type(obj_id, 'IBCocoaActionConnection') do |conn_def|
+      "-[(#{conn_def['source-label']}) #{conn_def['label']}]"
+    end
+    iputs_connections_of_type(obj_id, 'IBCocoaTouchEventConnection') do |conn_def|
+      # Workaround: The event type has its key/value swapped in the ibtool output
+      event_type = conn_def['event-type'] || conn_def.index('event-type')
+      "#{event_type}: -[(#{conn_def['source-label']}) #{conn_def['label']}]"
+    end
+
+    iputs_connections_of_type(obj_id, 'IBCocoaOutletConnection', 'IBCocoaTouchOutletConnection') do |conn_def|
+      dest_id = conn_def['destination-id']
+      "#{conn_def['label']} = (#{dest_id}| #{display_label($object_id_map[dest_id])})"
+    end
+
+    $connections_by_source_id[obj_id].select {|c| c['type'] == 'IBBindingConnection' }.sort_by {|c| c['binding'] }.each do |conn_def|
+      dest_id = conn_def['destination-id']
+      with_header "#{conn_def['binding']}: (#{dest_id}| #{display_label($object_id_map[dest_id])}).#{conn_def['keypath']}" do
+        conn_def['binding-options'].each_sorted_pair do |option, value|
+          iputs [option, value].join(' = ')
+        end
+      end
+    end
+
+    (hier_def['children'] || []).each {|child_hier_def| describe_object(child_hier_def) }
+  end
+end
+
+def attributes_sha1(obj_def)
+  attrs_for_hash = obj_def.select {|k,v| not AttributesTreatedSeparately.include? k }
+  Digest::SHA1.hexdigest attrs_for_hash.sort_by {|pair| pair[0] }.inspect
+end
+
+plist['com.apple.ibtool.document.hierarchy'].each {|hier_def| describe_object(hier_def) }

@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+while (<>) {
+    if ($_ =~ /^(\d{10}(\.\d+)?)(.*)/) {
+        print localtime($1) . "$3\n";
+    } else {
+        print $_
+    }   
+}
