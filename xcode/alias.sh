@@ -1,0 +1,1 @@
+alias swift="xcrun swift"
