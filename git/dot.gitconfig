@@ -18,17 +18,17 @@
 	branch = auto
 	status = auto
 [alias]
-    co = checkout
-    promote = !$DOTFILESDIR/bin/git-promote
-    wtf     = !$DOTFILESDIR/bin/git-wtf
-    rank-contributers = !$DOTFILESDIR/bin/git-rank-contributers
-    count   = !git shortlog -sn
+	co = checkout
+	promote = !$DOTFILESDIR/bin/git-promote
+	wtf     = !$DOTFILESDIR/bin/git-wtf
+	rank-contributers = !$DOTFILESDIR/bin/git-rank-contributers
+	count   = !git shortlog -sn
 [github]
 	user = sveinhal
 	password = !security find-generic-password -gs github.password -w | tr -d '\n'
 [gist]
 	private = YES
 [diff "localizablestrings"]
-    textconv = "iconv -f utf-16 -t utf-8"
+	textconv = "iconv -f utf-16 -t utf-8"
 [push]
 	default = upstream
