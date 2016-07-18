@@ -28,7 +28,9 @@
 	ignore  = "!gi() { curl -L -s https://www.gitignore.io/api/$@ ;}; gi"
 [github]
 	user = sveinhal
-	password = !security find-generic-password -gs github.password -w | tr -d '\n'
+	password = !security find-internet-password -a sveinhal -s github.com -l 'hub token' -w
+[ghi]
+	token = !security find-internet-password -a sveinhal -s github.com -l 'ghi token' -w
 [gist]
 	private = YES
 [diff "localizablestrings"]
