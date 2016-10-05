@@ -57,3 +57,6 @@ chflags nohidden ~/Library
 
 # Prevent Photos from opening automatically when devices are plugged in
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+
+# Prevent apps from opening after reboot
+defaults write -g ApplePersistence -bool no
