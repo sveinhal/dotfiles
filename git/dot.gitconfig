@@ -1,6 +1,6 @@
 [user]
 	name = Svein Halvor Halvorsen
-	email = svein@vrtkl.no
+	email = svein@finkoslo.no
 [core]
 	excludesfile = /Users/sveinhal/.gitignore_global
 	whitespace = trailing-space
