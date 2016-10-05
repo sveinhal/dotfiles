@@ -26,6 +26,7 @@
 	delete-local-merged = !git branch -d `git branch --merged | grep -v '^*' | grep -v 'master' | tr -d '\n'`
 	delete-remote-merged = !git branch -rd `git branch -r --merged | grep -v '^*' | grep -v 'master' | tr -d '\n'`
 	ignore  = "!gi() { curl -L -s https://www.gitignore.io/api/$@ ;}; gi"
+	issues = !ghi
 [github]
 	user = sveinhal
 	password = !security find-internet-password -a sveinhal -s github.com -l 'hub token' -w
