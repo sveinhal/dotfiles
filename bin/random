@@ -1,0 +1,3 @@
+#!/bin/bash
+N=`[[ -n $1 ]] && echo $1 || echo 32`
+/usr/bin/openssl rand -base64 ${N} | cut -c1-${N}
