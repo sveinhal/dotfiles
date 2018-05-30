@@ -51,3 +51,5 @@
 	prompt = false
 [diff]
 	tool = Kaleidoscope
+[fetch]
+	prune = true
