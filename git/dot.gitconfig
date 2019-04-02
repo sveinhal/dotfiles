@@ -4,12 +4,6 @@
 [core]
 	excludesfile = /Users/sveinhal/.gitignore_global
 	whitespace = trailing-space
-[difftool "sourcetree"]
-	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path =
-[mergetool "sourcetree"]
-	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
-	trustExitCode = true
 [credential]
 	helper = osxkeychain
 [color]
@@ -21,11 +15,11 @@
 	all = add -A
 	amend = commit --amend -C HEAD
 	co = checkout
-	count   = shortlog -sn
+	count = shortlog -sn
 	undo = reset --soft HEAD^
 	delete-local-merged = !git branch -d `git branch --merged | grep -v '^*' | grep -v 'master' | tr -d '\n'`
 	delete-remote-merged = !git branch -rd `git branch -r --merged | grep -v '^*' | grep -v 'master' | tr -d '\n'`
-	ignore  = "!gi() { curl -L -s https://www.gitignore.io/api/$@ ;}; gi"
+	ignore = "!gi() { curl -L -s https://www.gitignore.io/api/$@ ;}; gi"
 	issues = !ghi
 [github]
 	user = sveinhal
@@ -36,6 +30,8 @@
 	private = YES
 [diff "localizablestrings"]
 	textconv = "iconv -f utf-16 -t utf-8"
+[diff "json"]
+	textconv = "jsondiff"
 [push]
 	default = upstream
 [mergetool "Kaleidoscope"]
