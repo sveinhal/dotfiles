@@ -1,3 +1,3 @@
 #!/bin/bash
 
-export EDITOR="atom -w"
+export EDITOR="code -w"
