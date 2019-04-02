@@ -12,6 +12,8 @@
 	diff = auto
 	branch = auto
 	status = auto
+[format]
+  pretty = format:* %C(red)%h%C(reset) %C(blue)%>(14)%cr%C(reset) %C(green)%an%C(reset) %s %C(yellow)%d%C(reset)
 [alias]
 	all = add -A
 	amend = commit --amend -C HEAD
