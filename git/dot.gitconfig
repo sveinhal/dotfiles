@@ -1,6 +1,7 @@
 [user]
 	name = Svein Halvor Halvorsen
 	email = svein@finkoslo.no
+	signingkey = 35999D37D7F99D2A
 [core]
 	excludesfile = /Users/sveinhal/.gitignore_global
 	whitespace = trailing-space
@@ -47,5 +48,7 @@
 	prompt = false
 [diff]
 	tool = Kaleidoscope
+[commit]
+	gpgsign = true
 [fetch]
 	prune = true
