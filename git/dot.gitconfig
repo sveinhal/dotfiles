@@ -1,6 +1,6 @@
 [user]
 	name = Svein Halvor Halvorsen
-	email = svein@finkoslo.no
+	email = svein@fink.no
 	signingkey = 35999D37D7F99D2A
 [core]
 	excludesfile = /Users/sveinhal/.gitignore_global
