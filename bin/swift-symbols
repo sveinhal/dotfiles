@@ -1,0 +1,3 @@
+#!/bin/bash
+
+nm -gU "$@" | awk '{ print $3 }' | xargs -I% xcrun swift-demangle -compact %  #| egrep -o '\S+(\.\S+)+' 
