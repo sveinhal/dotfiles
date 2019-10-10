@@ -9,8 +9,9 @@ arch=`uname`
 case $arch in
     FreeBSD|Linux)
         alias su='su -m'
-	   ;;
+	    ;;
     Darwin)
-	   ;;
+        alias su="sudo -E -s"
+	    ;;
 esac
 
