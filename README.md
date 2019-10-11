@@ -10,11 +10,11 @@ $ ~/.dotfiles/script/bootstrap #installs .bashrc, etc. Does not overwrite anythi
 ```
 
 ### Bootstrap
-The `bootstrap` script works by finding all files in the `.dotfiles` directory named `dot.*` and creates a symlink `~/.foo -> .dotfiles/some/path/dot.foo`. This includes among other things `.bashrc`. This files is executed on every new shell.
+The `bootstrap` script works by finding all files in the `.dotfiles` directory named `dot.*` and creates a symlink `~/.foo -> .dotfiles/some/path/dot.foo`. This includes among other things `.zshrc`. This files is executed on every new shell.
 
-### .bashrc
-The `.bashrc` script will find all files `*.sh` in the `.dotfiles` directory and source them.
-This allows one to place various small well-contained files around the `.dotfiles` directory. E.g put git alias config in `.dotfiles/git/alias.sh` or bash prompt config in `.dotfiles/bash/prompt.sh`, etc. To disable a file, just rename it to e.g. `foo.sh.disabled` (or some other name that does not end in `.sh`).
+### .zshrc
+The `.zshrc` script will find all files `*.sh` and `*.zsh` in the `.dotfiles` directory and source them.
+This allows one to place various small well-contained files around the `.dotfiles` directory. E.g put git alias config in `.dotfiles/git/alias.sh` or zsh prompt config in `.dotfiles/zsh/prompt.zsh`, etc. To disable a file, just rename it to e.g. `foo.sh.disabled` (or some other name that does not end in `.sh`).
 
 The files are sorted numerically before being sourced, so to make the files be sourced in a certain order, you can prefix the files with a number. Say `.dotfiles/some/path/999-should-happen-last.sh` or `.dotfiles/dir/000-important.sh`
 
