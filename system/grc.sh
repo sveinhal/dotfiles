@@ -5,4 +5,6 @@ then
 
   alias head="colourify head"
   alias tail="colourify tail"
+else
+  echo "grc not installed. Install with brew install grc"
 fi
