@@ -1,0 +1,36 @@
+#!/bin/sh
+# To determine if a branch is squash-merged, git-delete-squashed creates
+# a temporary dangling squashed commit with git commit-tree. Then it uses
+# git cherry to check if the squashed commit has already been applied to 
+# the current branch. If so, it deletes the branch. Without -f, the
+# command only dry runs.
+#
+# Based on https://github.com/not-an-aardvark/git-delete-squashed
+
+usage() {
+    echo "usage: git delete-squashed [-f|--force]"
+}
+
+while [ "$1" != "" ]; do
+    case $1 in
+    -f | --force) 
+        FORCE=true
+        ;;
+    -h | --help)
+        usage
+        exit 1
+    esac
+    shift
+done
+
+BASE_BRANCH=$(git symbolic-ref --short HEAD)
+git for-each-ref refs/heads/ "--format=%(refname:short)" | while read BRANCH; do 
+    MERGE_BASE=$(git merge-base $BASE_BRANCH $BRANCH)
+    if [[ $(git cherry $BASE_BRANCH $(git commit-tree $(git rev-parse $BRANCH\^{tree}) -p $MERGE_BASE -m _)) == "-"* ]]; then
+        if [ "$FORCE" = true ]; then
+            git branch -D $BRANCH
+        else
+            echo "git branch -D $BRANCH"
+        fi
+    fi
+done
