@@ -1,5 +1,5 @@
-alias ls='ls -G'
-alias ll='ls -l'
+alias ls='ls --color'
+alias ll='ls -l --color'
 alias la='ls -a'
 alias mv='mv -i'
 alias cp='cp -i'
