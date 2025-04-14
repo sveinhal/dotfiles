@@ -25,7 +25,7 @@ done
 
 BASE_BRANCH=$(git symbolic-ref --short HEAD)
 git for-each-ref refs/heads/ "--format=%(refname:short)" | while read BRANCH; do 
-    MERGE_BASE=$(git merge-base $BASE_BRANCH $BRANCH)
+    MERGE_BASE=$(git merge-base $BASE_BRANCH $BRANCH) || continue
     if [[ $(git cherry $BASE_BRANCH $(git commit-tree $(git rev-parse $BRANCH\^{tree}) -p $MERGE_BASE -m _)) == "-"* ]]; then
         if [ "$FORCE" = true ]; then
             git branch -D $BRANCH
