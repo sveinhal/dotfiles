@@ -1,0 +1,1 @@
+export GO_CMD_PATH_SVEINHAL=$HOME/dev/golang/bin
