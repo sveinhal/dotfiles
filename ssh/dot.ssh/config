@@ -1,0 +1,13 @@
+CanonicalizeHostname yes
+CanonicalDomains stork-wall.ts.net
+CanonicalizeMaxDots 0
+
+Host *
+  IgnoreUnknown UseKeychain
+  AddKeysToAgent yes
+  UseKeychain yes
+  PreferredAuthentications publickey
+  IdentityFile ~/.ssh/id_ed25519
+
+Host *.stork-wall.ts.net
+  ForwardAgent yes
