@@ -1,10 +1,42 @@
 #!/bin/bash
 
-DOTFILEDIR=$HOME/.dotfiles
-DOTFILES=`find $DOTFILEDIR -name "dot.*"`
+DOTFILES_DIR="$HOME/.dotfiles"
 
-for f in $DOTFILES; do
-    dst=$HOME/.`basename $f | cut -d. -f2-`
-    test ! -e $dst && ln -s $f $dst || echo "File exists: $dst" >&2
+link_dotfile() {
+  local src="$1"
+  local relpath="${src#$DOTFILES_DIR/}"
+  local filename="${relpath##*/dot.}"
+  local dest="$HOME/.${filename}"
+  
+  # Creat target directory if needed
+  mkdir -p "$(dirname "$dest")"
+
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    echo "⚠️ Skipping $dest: already exists and is not a symlink"
+  else
+    echo "🔗 Linking $dest → $src"
+    ln -sf "$src" "$dest"
+  fi
+}
+
+process_directory() {
+  local dir="$1"
+  echo "📂 Processing directory $dir"
+  find "$dir" -mindepth 1 -maxdepth 1 -print0 | while IFS= read -r -d '' item; do
+    if [[ -f "$item" ]]; then
+      link_dotfile "$item"
+    elif [[ -d "$item" ]]; then
+      process_directory "$item"
+    fi
+  done
+}
+
+# First: files with name dot.* (i.e. dot.bashrc → ~/.bashrc)
+find "$DOTFILES_DIR" -type f -name 'dot.*' | while read -r file; do
+  link_dotfile "$file"
 done
 
+# Second: directories with name dot.* (i.e. dot.config)
+find "$DOTFILES_DIR" -type d -name 'dot.*' | while read -r dir; do
+  process_directory "$dir"
+done
