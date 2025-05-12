@@ -6,8 +6,15 @@
     "ssh",
     "cwd",
     "git",
-    "hg",
     "jobs",
-    "root"
-  ]
+    "root",
+    "read_only"
+  ],
+  "cmd": {
+    "mode": "default"
+  },
+  "vcs": {
+    "show_symbol": false
+  },
+  "theme": "default"
 }
