@@ -63,6 +63,8 @@ touch ~/.dotfiles/newtool/dot.newtoolrc
 ```
 
 ### Step 3: Create Initialization Script
+⚠️  **IMPORTANT**: Only create `.sh`/`.zsh` files that should run on **every shell startup**. For scripts that should be run manually, use `bin/` directory.
+
 ```bash
 cat > ~/.dotfiles/newtool/load.sh << 'EOF'
 #!/usr/bin/env bash
@@ -134,12 +136,31 @@ fi
 ```
 
 ### 4. File Naming Conventions
+
+**CRITICAL**: Files with `.sh` or `.zsh` extensions are **automatically sourced** during shell startup. Only put files here that should run on every shell initialization.
+
+**Auto-sourced files (run at shell startup):**
 - `000-*.sh` - Early initialization (Homebrew, core paths)
 - `999-*.sh` - Late initialization (final PATH adjustments)
 - `alias.sh` - Command aliases
 - `path.sh` - PATH modifications
 - `load.sh` - Main tool initialization
 - `env.sh` - Environment variables
+
+**Manual-execution files:**
+- **Tool-specific scripts**: Keep in tool directory without `.sh` extension (e.g., `ssh/origin-proxy`)
+- **General utilities**: Put in `bin/` directory
+- **One-time setup scripts**: Put in `bin/` directory
+
+**Examples by location:**
+- `ssh/origin-proxy` - SSH ProxyCommand script (no .sh extension, executable)
+- `git/setup-hooks` - Git setup script (tool-specific, no .sh extension)
+- `bin/backup-dotfiles` - General utility script
+
+**Examples of what NOT to auto-source:**
+- SSH ProxyCommand scripts (would run on every shell startup!)
+- Scripts that perform actions (vs setting up environment)
+- Scripts that might fail or have side effects
 
 ### 5. Lazy Loading
 For heavy tools (nvm, rvm, etc.), use lazy loading:
@@ -330,6 +351,40 @@ source ~/.zshrc  # May not fix tmux-frozen vars
 3. Create new tmux window to test fresh environment
 4. Use refresh functions to update existing shells
 5. Verify SSH agent forwarding: `ssh-add -l`
+
+### Auto-Sourcing Issues
+**Symptom**: Terminal won't start, or errors on shell startup mentioning scripts
+
+**Cause**: Scripts with `.sh`/`.zsh` extensions are auto-sourced during shell startup
+
+**Emergency Access (when dotfiles break shell startup)**:
+```bash
+# Start bare-bones shell without sourcing dotfiles
+ssh server bash           # Remote access without .bashrc
+ssh server sh            # Even more minimal
+ssh server "bash --norc"  # Explicit no-rc mode
+
+# Once in, fix the problem:
+mv ~/.dotfiles/problematic.sh ~/.dotfiles/problematic.sh.disabled
+```
+
+**Solution**:
+1. Check for executable scripts in tool directories: `find ~/.dotfiles -name "*.sh" -executable`
+2. For tool-specific scripts: Remove `.sh` extension: `mv tool/script.sh tool/script`
+3. For general utilities: Move to bin: `mv tool/script.sh bin/tool-script`  
+4. Only keep environment setup scripts as `.sh` files
+5. Test with: `bash -x ~/.bashrc` or `zsh -x ~/.zshrc` to see what's being sourced
+
+**File naming rules**:
+- `.sh`/`.zsh` = Auto-sourced at shell startup
+- No extension + executable = Manual execution
+- Tool-specific executables stay in tool directory
+- General executables go to `bin/`
+
+**Examples of problematic files**:
+- SSH ProxyCommand scripts
+- One-time setup scripts  
+- Scripts that perform actions vs setting environment
 
 ## Contributing
 
