@@ -1,5 +1,6 @@
 function powerline_precmd() {
-    PS1="$(powerline-shell --shell zsh $?)"
+    # Suppress Python SyntaxWarnings from powerline-shell's outdated regex patterns
+    PS1="$(PYTHONWARNINGS="ignore::SyntaxWarning" powerline-shell --shell zsh $?)"
 }
 
 function install_powerline_precmd() {
