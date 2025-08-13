@@ -234,6 +234,78 @@ apt update && apt upgrade     # Debian/Ubuntu
 3. **Review sourced files** - Be cautious with third-party shell scripts
 4. **Use `command -v` over `which`** - More reliable and POSIX compliant
 
+## Remote Hosts and tmux Considerations
+
+When configuring remote hosts accessed via SSH, be aware of tmux behavior:
+
+### Environment Variable Persistence
+**Problem**: tmux "freezes" environment variables when sessions start. SSH-related variables become stale when reconnecting from different locations.
+
+**Affected Variables**:
+- `SSH_AUTH_SOCK` - SSH agent forwarding socket
+- `SSH_CLIENT` - Origin IP and port information  
+- `SSH_CONNECTION` - Connection details
+- Custom variables set during SSH connection
+
+### Solutions Implemented
+
+#### 1. SSH Agent Socket Symlink
+The `tmux-on-ssh.sh` script creates a stable symlink:
+```bash
+# Creates: ~/.ssh/ssh_auth_sock -> /tmp/ssh-agent.12345
+export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
+```
+
+This ensures SSH agent forwarding works in existing tmux shells even after reconnecting from different machines.
+
+#### 2. Environment Variable Updates
+The script updates tmux session environment on each connection:
+```bash
+tmux setenv -t "$SESSION_NAME" SSH_CLIENT "$SSH_CLIENT"
+tmux setenv -t "$SESSION_NAME" SSH_CONNECTION "$SSH_CONNECTION"  
+tmux setenv -t "$SESSION_NAME" SSH_AUTH_SOCK "$SSH_AUTH_SOCK_LINK"
+```
+
+**Note**: This only affects NEW shells/windows in tmux, not existing ones.
+
+### Best Practices for Remote Configuration
+
+1. **Test in Fresh Shells**: After changing remote configs, test in new tmux windows
+2. **Use Symlinks for Sockets**: Follow the SSH agent socket pattern for other persistent resources
+3. **Refresh Functions**: Create functions to manually update environment when needed:
+   ```bash
+   refresh-ssh() {
+       if [[ -n "$TMUX" ]]; then
+           export SSH_AUTH_SOCK=$(tmux showenv SSH_AUTH_SOCK | cut -d= -f2-)
+           echo "SSH environment refreshed"
+       fi
+   }
+   ```
+
+4. **Consider Session Scope**: Some configurations should be session-wide, others per-connection
+
+### Remote Debugging
+
+When things don't work in tmux on remote hosts:
+
+```bash
+# Check if you're in tmux
+echo $TMUX
+
+# Check SSH agent forwarding
+ssh-add -l
+
+# Compare tmux env vs current shell
+tmux showenv | grep SSH
+env | grep SSH
+
+# Test reverse tunnel detection
+netstat -ln | grep 127.0.0.1 | grep LISTEN
+
+# Refresh environment manually
+source ~/.zshrc  # May not fix tmux-frozen vars
+```
+
 ## Troubleshooting
 
 ### Tool Not Loading
@@ -251,6 +323,13 @@ apt update && apt upgrade     # Debian/Ubuntu
 1. Check current PATH: `echo $PATH`
 2. Find duplicates: `echo $PATH | tr ':' '\n' | sort | uniq -d`
 3. Verify order: Earlier entries take precedence
+
+### tmux Environment Issues
+1. Check if in tmux: `echo $TMUX`
+2. Compare environments: `tmux showenv` vs `env`
+3. Create new tmux window to test fresh environment
+4. Use refresh functions to update existing shells
+5. Verify SSH agent forwarding: `ssh-add -l`
 
 ## Contributing
 
