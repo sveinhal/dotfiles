@@ -14,3 +14,11 @@ Host *.stork-wall.ts.net
 
 Host *.samfundet.no login.samfundet.no
   ForwardAgent yes
+  RemoteForward 0 localhost:22
+
+# Connection back to origin machine via reverse tunnel
+Host back
+  HostName localhost
+  User sveinhal
+  Port 22
+  ProxyCommand ~/.dotfiles/ssh/origin-proxy %h %p

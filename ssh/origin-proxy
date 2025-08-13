@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# SSH ProxyCommand to auto-detect reverse tunnel port for origin connection
+
+# Only works when we're in an SSH session
+if [[ -z "$SSH_CLIENT" ]]; then
+    echo "Error: Not in SSH session - no reverse tunnel available" >&2
+    exit 1
+fi
+
+# Don't run if we're already on the origin machine (avoid recursion)
+# Check if we have the typical remote host environment
+if [[ "$(hostname)" == "$(echo $SSH_CLIENT | awk '{print $1}' | sed 's/.*\.//')" ]]; then
+    echo "Error: Already on origin machine" >&2
+    exit 1
+fi
+
+# Find listening ports that might be our reverse tunnel
+echo "Scanning for reverse tunnel port..." >&2
+
+# Exclude standard SSH port (22) and look for localhost listeners (highest port first)
+for port in $(netstat -ln 2>/dev/null | awk '/127\.0\.0\.1:.*LISTEN/ && !/127\.0\.0\.1:22 / {gsub(/.*127\.0\.0\.1:/, "", $4); gsub(/ .*/, "", $4); print $4}' | sort -nr); do
+    echo "Testing port $port..." >&2
+    # Test if this port responds to SSH (reduced timeout to 1 second)
+    if timeout 1 bash -c "echo '' | nc localhost $port" 2>/dev/null | grep -q "SSH-"; then
+        echo "Found tunnel! Connecting to origin via port $port..." >&2
+        # Use nc (netcat) as proxy to connect to the actual port
+        exec nc localhost "$port"
+    fi
+done
+
+# If we get here, no tunnel was found
+echo "Error: Could not detect reverse tunnel port" >&2
+echo "Available listening ports:" >&2
+netstat -ln 2>/dev/null | grep '127.0.0.1:.*LISTEN' >&2
+exit 1
