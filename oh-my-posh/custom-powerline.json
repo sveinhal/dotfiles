@@ -1,0 +1,113 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "properties": {
+            "cache_duration": "none",
+            "display_host": true
+          },
+          "template": " {{ .UserName }} ",
+          "foreground": "#aeaeae",
+          "leading_powerline_symbol": "",
+          "background": "#464646",
+          "type": "session",
+          "style": "powerline"
+        },
+        {
+          "properties": {
+            "cache_duration": "none",
+            "display_user": false
+          },
+          "template": " {{ .HostName }} ",
+          "foreground": "#aeaeae",
+          "powerline_symbol": "\ue0b0",
+          "background": "238",
+          "type": "session",
+          "style": "powerline"
+        },
+        {
+          "properties": {
+            "cache_duration": "none",
+            "display_host": false,
+            "display_user": false
+          },
+          "template": "{{ if .SSHSession }} SSH {{ end }}",
+          "foreground": "#FFFFFF",
+          "powerline_symbol": "\ue0b0",
+          "background": "#FF8C00",
+          "type": "session",
+          "style": "powerline"
+        },
+        {
+          "type": "path",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "#ffffff",
+          "background": "32",
+          "template": "{{ if hasPrefix .Env.HOME .Location }} ~ {{ end }}"
+        },
+        {
+          "properties": {
+            "cache_duration": "none",
+            "folder_separator_icon": " \ue0b1 ",
+            "style": "agnoster_full",
+            "display_root": true
+          },
+          "template": " {{ $home := print .Env.HOME }}{{ if hasPrefix $home .Location }}{{ $rel := trimPrefix $home .Location }}{{ $rel = trimPrefix \"/\" $rel }}{{ if $rel }}{{ .Format $rel }}{{ end }}{{ else }}{{ .Path }}{{ end }} ",
+          "foreground": "250",
+          "powerline_symbol": "\ue0b0",
+          "background": "#666666",
+          "type": "path",
+          "style": "powerline"
+        },
+        {
+          "type": "git",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "7",
+          "background": "34",
+          "background_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}214{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#ff4500{{ end }}",
+            "{{ if gt .Ahead 0 }}#B388FF{{ end }}",
+            "{{ if gt .Behind 0 }}#B388FF{{ end }}"
+          ],
+          "template": " {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }} {{ end }}",
+          "properties": {
+            "fetch_status": true,
+            "fetch_stash_count": true,
+            "fetch_upstream_icon": true,
+            "display_status": true,
+            "display_stash_count": true,
+            "display_worktree_count": true,
+            "branch_icon": "",
+            "cherry_pick_icon": "",
+            "commit_icon": "",
+            "merge_icon": "",
+            "no_commits_icon": "",
+            "rebase_icon": "",
+            "revert_icon": "",
+            "tag_icon": ""
+          }
+        },
+        {
+          "properties": {
+            "cache_duration": "none"
+          },
+          "template": "{{ if not .Writable }}  {{ end }}",
+          "foreground": "#FFFFFF",
+          "powerline_symbol": "\ue0b0",
+          "background": "#CC0000",
+          "type": "path",
+          "style": "powerline"
+        }
+      ]
+    }
+  ],
+  "version": 3,
+  "final_space": true
+}
