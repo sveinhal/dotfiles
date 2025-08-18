@@ -11,9 +11,9 @@
             "display_host": true
           },
           "template": " {{ .UserName }} ",
-          "foreground": "#aeaeae",
+          "foreground": "250",
           "leading_powerline_symbol": "",
-          "background": "#464646",
+          "background": "59",
           "type": "session",
           "style": "powerline"
         },
@@ -23,7 +23,7 @@
             "display_user": false
           },
           "template": " {{ .HostName }} ",
-          "foreground": "#aeaeae",
+          "foreground": "250",
           "powerline_symbol": "\ue0b0",
           "background": "238",
           "type": "session",
@@ -36,9 +36,9 @@
             "display_user": false
           },
           "template": "{{ if .SSHSession }} SSH {{ end }}",
-          "foreground": "#FFFFFF",
+          "foreground": "15",
           "powerline_symbol": "\ue0b0",
-          "background": "#FF8C00",
+          "background": "208",
           "type": "session",
           "style": "powerline"
         },
@@ -46,7 +46,7 @@
           "type": "path",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "#ffffff",
+          "foreground": "15",
           "background": "32",
           "template": "{{ if hasPrefix .Env.HOME .Location }} ~ {{ end }}"
         },
@@ -60,7 +60,7 @@
           "template": " {{ $home := print .Env.HOME }}{{ if hasPrefix $home .Location }}{{ $rel := trimPrefix $home .Location }}{{ $rel = trimPrefix \"/\" $rel }}{{ if $rel }}{{ .Format $rel }}{{ end }}{{ else }}{{ .Path }}{{ end }} ",
           "foreground": "250",
           "powerline_symbol": "\ue0b0",
-          "background": "#666666",
+          "background": "59",
           "type": "path",
           "style": "powerline"
         },
@@ -68,13 +68,13 @@
           "type": "git",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "7",
-          "background": "34",
+          "foreground": "15",
+          "background": "28",
           "background_templates": [
-            "{{ if or (.Working.Changed) (.Staging.Changed) }}214{{ end }}",
-            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#ff4500{{ end }}",
-            "{{ if gt .Ahead 0 }}#B388FF{{ end }}",
-            "{{ if gt .Behind 0 }}#B388FF{{ end }}"
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}130{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}160{{ end }}",
+            "{{ if gt .Ahead 0 }}208{{ end }}",
+            "{{ if gt .Behind 0 }}208{{ end }}"
           ],
           "template": " {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }} {{ end }}",
           "properties": {
@@ -99,9 +99,9 @@
             "cache_duration": "none"
           },
           "template": "{{ if not .Writable }}  {{ end }}",
-          "foreground": "#FFFFFF",
+          "foreground": "15",
           "powerline_symbol": "\ue0b0",
-          "background": "#CC0000",
+          "background": "160",
           "type": "path",
           "style": "powerline"
         }
