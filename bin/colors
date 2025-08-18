@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+# 0–15: grunnfarger
+echo "Standard colors:"
+for i in {0..15}; do
+    printf "\e[48;5;%sm %3s \e[0m " "$i" "$i"
+done
+echo -e "\n"
+
+# 16–231: 6x6x6-kuben vist i 2 rader av 3
+echo "Color cube (16–231):"
+for row in 0 1; do
+    for green in {0..5}; do
+        for col in 0 1 2; do
+            red=$((row*3 + col))
+            for blue in {0..5}; do
+                i=$((16 + red*36 + green*6 + blue))
+                printf "\e[48;5;%sm %3s \e[0m " "$i" "$i"
+            done
+            echo -n "   "
+        done
+        echo
+    done
+    echo
+done
+
+# 232–255: gråskala
+echo "Grayscale (232–255):"
+for i in {232..255}; do
+    printf "\e[48;5;%sm %3s \e[0m " "$i" "$i"
+done
+echo -e "\n"
+
+# 0–15: grunnfarger
+echo "Standard colors (foreground):"
+for i in {0..15}; do
+    printf "\e[38;5;%sm %3s \e[0m " "$i" "$i"
+done
+echo -e "\n"
+
+# 16–231: 6x6x6-kuben i 2 rader av 3
+echo "Color cube (16–231, foreground):"
+for row in 0 1; do
+    for green in {0..5}; do
+        for col in 0 1 2; do
+            red=$((row*3 + col))
+            for blue in {0..5}; do
+                i=$((16 + red*36 + green*6 + blue))
+                printf "\e[38;5;%sm %3s \e[0m " "$i" "$i"
+            done
+            echo -n "   "
+        done
+        echo
+    done
+    echo
+done
+
+# 232–255: gråskala
+echo "Grayscale (232–255, foreground):"
+for i in {232..255}; do
+    printf "\e[38;5;%sm %3s \e[0m " "$i" "$i"
+done
+echo
