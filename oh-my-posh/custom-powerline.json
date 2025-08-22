@@ -11,6 +11,9 @@
           "leading_powerline_symbol": "",
           "foreground": "252",
           "background": "59",
+          "background_templates": [
+            "{{ if .Root }}160{{ end }}"
+          ],
           "template": " {{ .UserName }} "
         },
         {
@@ -88,6 +91,16 @@
           "foreground": "15",
           "background": "160",
           "template": "{{ if not .Writable }}  {{ end }}"
+        },
+        {
+          "type": "status",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "15",
+          "background": "173",
+          "properties": {
+            "status_template": "{{ if ne .Code 0 }} {{ .Code }} {{ reason .Code }} {{ end }}"
+          }
         }
       ]
     }
