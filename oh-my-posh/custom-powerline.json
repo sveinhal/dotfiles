@@ -61,12 +61,18 @@
           "foreground": "15",
           "background": "28",
           "background_templates": [
-            "{{ if or (.Working.Changed) (.Staging.Changed) }}130{{ end }}",
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}172{{ end }}",
             "{{ if and (gt .Ahead 0) (gt .Behind 0) }}160{{ end }}",
-            "{{ if gt .Ahead 0 }}208{{ end }}",
-            "{{ if gt .Behind 0 }}208{{ end }}"
+            "{{ if gt .Ahead 0 }}32{{ end }}",
+            "{{ if gt .Behind 0 }}220{{ end }}"
           ],
-          "template": " {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }} {{ end }}",
+          "foreground_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}15{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}15{{ end }}",
+            "{{ if gt .Ahead 0 }}15{{ end }}",
+            "{{ if gt .Behind 0 }}240{{ end }}"
+          ],
+          "template": " {{ .HEAD }} ",
           "properties": {
             "fetch_status": true,
             "fetch_stash_count": true,
@@ -83,6 +89,30 @@
             "revert_icon": "",
             "tag_icon": ""
           }
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "252",
+          "background": "238",
+          "template": " {{ .Segments.Git.BranchStatus }} "
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "238",
+          "background": "145",
+          "template": " {{ .Segments.Git.Working.String }} "
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "252",
+          "background": "28",
+          "template": " {{ .Segments.Git.Staging.String }} "
         },
         {
           "type": "path",
