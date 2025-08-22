@@ -129,7 +129,7 @@
           "foreground": "15",
           "background": "173",
           "properties": {
-            "status_template": "{{ if ne .Code 0 }} {{ .Code }} {{ reason .Code }} {{ end }}"
+            "status_template": "{{ if ne .Code 0 }} {{ reason .Code }}({{ .Code }}) {{ end }}"
           }
         }
       ]
