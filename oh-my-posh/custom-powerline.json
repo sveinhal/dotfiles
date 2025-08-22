@@ -6,63 +6,50 @@
       "alignment": "left",
       "segments": [
         {
-          "properties": {
-            "cache_duration": "none",
-            "display_host": true
-          },
-          "template": " {{ .UserName }} ",
-          "foreground": "250",
+          "type": "session",
+          "style": "powerline",
           "leading_powerline_symbol": "",
+          "foreground": "252",
           "background": "59",
-          "type": "session",
-          "style": "powerline"
+          "template": " {{ .UserName }} "
         },
         {
-          "properties": {
-            "cache_duration": "none",
-            "display_user": false
-          },
-          "template": " {{ .HostName }} ",
-          "foreground": "250",
+          "type": "text",
+          "style": "powerline",
           "powerline_symbol": "\ue0b0",
+          "foreground": "252",
           "background": "238",
-          "type": "session",
-          "style": "powerline"
+          "template": " {{ .HostName }} "
         },
         {
-          "properties": {
-            "cache_duration": "none",
-            "display_host": false,
-            "display_user": false
-          },
-          "template": "{{ if .SSHSession }} SSH {{ end }}",
-          "foreground": "15",
-          "powerline_symbol": "\ue0b0",
-          "background": "208",
           "type": "session",
-          "style": "powerline"
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "15",
+          "background": "208",
+          "template": "{{ if .SSHSession }} SSH {{ end }}"
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "15",
+          "background": "32",
+          "template": "{{ if hasPrefix .Env.HOME .Segments.Path.Location }} ~ {{ end }}"
         },
         {
           "type": "path",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "15",
-          "background": "32",
-          "template": "{{ if hasPrefix .Env.HOME .Location }} ~ {{ end }}"
-        },
-        {
+          "foreground": "252",
+          "background": "59",
+          "template": " {{ $home := print .Env.HOME }}{{ if hasPrefix $home .Location }}{{ $rel := trimPrefix $home .Location }}{{ $rel = trimPrefix \"/\" $rel }}{{ if $rel }}{{ .Format $rel }}{{ end }}{{ else }}{{ .Path }}{{ end }} ",
           "properties": {
             "cache_duration": "none",
             "folder_separator_icon": " \ue0b1 ",
             "style": "agnoster_full",
             "display_root": true
-          },
-          "template": " {{ $home := print .Env.HOME }}{{ if hasPrefix $home .Location }}{{ $rel := trimPrefix $home .Location }}{{ $rel = trimPrefix \"/\" $rel }}{{ if $rel }}{{ .Format $rel }}{{ end }}{{ else }}{{ .Path }}{{ end }} ",
-          "foreground": "250",
-          "powerline_symbol": "\ue0b0",
-          "background": "59",
-          "type": "path",
-          "style": "powerline"
+          }
         },
         {
           "type": "git",
@@ -95,15 +82,12 @@
           }
         },
         {
-          "properties": {
-            "cache_duration": "none"
-          },
-          "template": "{{ if not .Writable }}  {{ end }}",
-          "foreground": "15",
-          "powerline_symbol": "\ue0b0",
-          "background": "160",
           "type": "path",
-          "style": "powerline"
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "15",
+          "background": "160",
+          "template": "{{ if not .Writable }}  {{ end }}"
         }
       ]
     }
