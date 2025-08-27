@@ -10,7 +10,7 @@
           "style": "powerline",
           "leading_powerline_symbol": "",
           "foreground": "252",
-          "background": "242",
+          "background": "59",
           "background_templates": [
             "{{ if .Root }}160{{ end }}"
           ],
@@ -33,19 +33,19 @@
           "template": "{{ if .SSHSession }} SSH {{ end }}"
         },
         {
-          "type": "path",
+          "type": "text",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
           "foreground": "15",
           "background": "32",
-          "template": "{{ if hasPrefix .Env.HOME .Location }} ~ {{ end }}"
+          "template": "{{ if hasPrefix .Env.HOME .Segments.Path.Location }} ~ {{ end }}"
         },
         {
           "type": "path",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
           "foreground": "252",
-          "background": "242",
+          "background": "59",
           "template": " {{ $home := print .Env.HOME }}{{ if hasPrefix $home .Location }}{{ $rel := trimPrefix $home .Location }}{{ $rel = trimPrefix \"/\" $rel }}{{ if $rel }}{{ .Format $rel }}{{ end }}{{ else }}{{ .Path }}{{ end }} ",
           "properties": {
             "cache_duration": "none",
@@ -58,13 +58,14 @@
           "type": "git",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "238",
+          "foreground": "0",
           "background": "148",
           "background_templates": [
-            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}124{{ end }}",
-            "{{ if or (.Working.Changed) (.Staging.Changed) }}214{{ end }}"
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}161{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}160{{ end }}"
           ],
           "foreground_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}15{{ end }}",
             "{{ if and (gt .Ahead 0) (gt .Behind 0) }}15{{ end }}"
           ],
           "template": " {{ .HEAD }} ",
@@ -90,7 +91,15 @@
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
           "foreground": "252",
-          "background": "130",
+          "background": "22",
+          "template": " {{ .Segments.Git.Staging.String }} "
+        },
+        {
+          "type": "text",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "252",
+          "background": "52",
           "template": " {{ .Segments.Git.Working.String }} "
         },
         {
@@ -99,14 +108,6 @@
           "powerline_symbol": "\ue0b0",
           "foreground": "252",
           "background": "238",
-          "template": " {{ .Segments.Git.Staging.String }} "
-        },
-        {
-          "type": "text",
-          "style": "powerline",
-          "powerline_symbol": "\ue0b0",
-          "foreground": "252",
-          "background": "242",
           "template": " {{ .Segments.Git.BranchStatus }} "
         },
         {
