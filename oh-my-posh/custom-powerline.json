@@ -38,7 +38,7 @@
           "powerline_symbol": "\ue0b0",
           "foreground": "15",
           "background": "32",
-          "template": "{{ if hasPrefix .Env.HOME .Location }} ~ {{ end }}"
+          "template": "{{ if hasPrefix .Env.HOME .Location }} \udb81\udf25 {{ end }}"
         },
         {
           "type": "path",
@@ -58,10 +58,10 @@
           "type": "git",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "238",
-          "background": "148",
+          "foreground": "15",
+          "background": "35",
           "background_templates": [
-            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}124{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}160{{ end }}",
             "{{ if or (.Working.Changed) (.Staging.Changed) }}214{{ end }}"
           ],
           "foreground_templates": [
@@ -75,21 +75,23 @@
             "display_status": true,
             "display_stash_count": true,
             "display_worktree_count": true,
-            "branch_icon": "",
+            "branch_icon": "\uf126 ",
             "cherry_pick_icon": "",
             "commit_icon": "",
             "merge_icon": "",
             "no_commits_icon": "",
             "rebase_icon": "",
             "revert_icon": "",
-            "tag_icon": ""
+            "tag_icon": "",
+            "branch_gone_icon": "\uf00d",
+            "branch_identical_icon": "\ue63f"
           }
         },
         {
           "type": "text",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "252",
+          "foreground": "15",
           "background": "130",
           "template": " {{ .Segments.Git.Working.String }} "
         },
@@ -97,8 +99,8 @@
           "type": "text",
           "style": "powerline",
           "powerline_symbol": "\ue0b0",
-          "foreground": "252",
-          "background": "238",
+          "foreground": "15",
+          "background": "94",
           "template": " {{ .Segments.Git.Staging.String }} "
         },
         {
@@ -115,7 +117,7 @@
           "powerline_symbol": "\ue0b0",
           "foreground": "15",
           "background": "160",
-          "template": "{{ if not .Writable }}  {{ end }}"
+          "template": "{{ if not .Writable }} \uea75 {{ end }}"
         },
         {
           "type": "status",
