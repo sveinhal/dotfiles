@@ -118,16 +118,6 @@
           "foreground": "15",
           "background": "160",
           "template": "{{ if not .Writable }} \uea75 {{ end }}"
-        },
-        {
-          "type": "status",
-          "style": "powerline",
-          "powerline_symbol": "\ue0b0",
-          "foreground": "15",
-          "background": "173",
-          "properties": {
-            "status_template": "{{ if ne .Code 0 }} {{ reason .Code }}({{ .Code }}) {{ end }}"
-          }
         }
       ]
     }
