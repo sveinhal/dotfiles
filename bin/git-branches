@@ -1,0 +1,177 @@
+#!/bin/zsh
+# git-branches.zsh - List git branches with details
+# Usage: ./git-branches.zsh [-p] [filter]
+#   -p    Show parent branch info (slow)
+
+set -e
+
+# Parse arguments
+show_parent=false
+filter=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -p|--parent)
+            show_parent=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [-p] [filter]"
+            echo "  -p, --parent  Show parent branch info (slow)"
+            echo "  filter        Filter branches by name pattern"
+            exit 0
+            ;;
+        *)
+            filter="$1"
+            shift
+            ;;
+    esac
+done
+
+# ANSI colors
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly MAGENTA='\033[0;35m'
+readonly CYAN='\033[0;36m'
+readonly WHITE='\033[0;37m'
+readonly BOLD='\033[1m'
+readonly DIM='\033[2m'
+readonly RESET='\033[0m'
+readonly CLEAR_LINE='\033[2K'
+readonly MOVE_UP='\033[1A'
+
+# Spinner
+readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+spinner_idx=0
+
+show_spinner() {
+    local msg="$1"
+    printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$spinner_idx]} %s${RESET}" "$msg" >&2
+    spinner_idx=$(( (spinner_idx + 1) % ${#SPINNER_CHARS[@]} ))
+}
+
+clear_spinner() {
+    printf "${CLEAR_LINE}\r" >&2
+}
+
+# Check if we're in a git repo
+if ! git rev-parse --git-dir &>/dev/null; then
+    echo "${RED}Error: Not a git repository${RESET}" >&2
+    exit 1
+fi
+
+
+# Get the main branch (usually main or master)
+get_main_branch() {
+    for branch in main master develop; do
+        if git show-ref --verify --quiet "refs/heads/$branch"; then
+            echo "$branch"
+            return
+        fi
+    done
+    # Fallback to the default branch from remote
+    git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main"
+}
+
+# Find the nearest parent branch
+find_parent_branch() {
+    local branch="$1"
+    local main_branch=$(get_main_branch)
+    local best_parent=""
+    local best_distance=999999
+
+    # Get all local branches except the current one
+    local branches=(${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads/ | grep -v "^${branch}$")"})
+
+    for candidate in $branches; do
+        # Update spinner
+        show_spinner "$branch → $candidate"
+
+        # Find merge base
+        local merge_base=$(git merge-base "$branch" "$candidate" 2>/dev/null) || continue
+
+        # Count commits from merge base to branch
+        local distance=$(git rev-list --count "$merge_base..$branch" 2>/dev/null) || continue
+
+        # Prefer main/master/develop as parent if distance is same
+        if [[ $distance -lt $best_distance ]] || \
+           [[ $distance -eq $best_distance && ($candidate == "main" || $candidate == "master" || $candidate == "develop") ]]; then
+            best_distance=$distance
+            best_parent=$candidate
+        fi
+    done
+
+    if [[ -n "$best_parent" ]]; then
+        # Count commits ahead/behind
+        local ahead=$(git rev-list --count "$best_parent..$branch" 2>/dev/null || echo "?")
+        local behind=$(git rev-list --count "$branch..$best_parent" 2>/dev/null || echo "?")
+        echo "$best_parent (+$ahead/-$behind)"
+    else
+        echo "-"
+    fi
+}
+
+# Get current branch
+current_branch=$(git branch --show-current 2>/dev/null || echo "")
+
+# Header
+if $show_parent; then
+    printf "${BOLD}%-12s %-40s %-30s %s${RESET}\n" "DATE" "BRANCH" "PARENT (ahead/behind)" "LAST COMMIT"
+    printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..120})"
+else
+    printf "${BOLD}%-12s %-40s %s${RESET}\n" "DATE" "BRANCH" "LAST COMMIT"
+    printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..90})"
+fi
+
+# Get branches sorted by committer date
+git for-each-ref \
+    --sort=-committerdate \
+    --format='%(refname:short)|%(committerdate:short)|%(subject)' \
+    refs/heads/ | \
+while IFS='|' read -r branch date message; do
+    # Apply filter if provided
+    if [[ -n "$filter" && ! "$branch" =~ "$filter" ]]; then
+        continue
+    fi
+
+    # Truncate message if too long
+    if [[ ${#message} -gt 50 ]]; then
+        message="${message:0:47}..."
+    fi
+
+    # Find parent branch (only if requested)
+    if $show_parent; then
+        parent=$(find_parent_branch "$branch")
+        clear_spinner
+    fi
+
+    # Color the branch name
+    if [[ "$branch" == "$current_branch" ]]; then
+        branch_color="${GREEN}${BOLD}* ${branch}${RESET}"
+    elif [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        branch_color="${MAGENTA}${branch}${RESET}"
+    elif [[ "$branch" =~ ^(feature|feat)/ ]]; then
+        branch_color="${CYAN}${branch}${RESET}"
+    elif [[ "$branch" =~ ^(fix|bugfix|hotfix)/ ]]; then
+        branch_color="${RED}${branch}${RESET}"
+    elif [[ "$branch" =~ ^(release|rel)/ ]]; then
+        branch_color="${YELLOW}${branch}${RESET}"
+    else
+        branch_color="${WHITE}${branch}${RESET}"
+    fi
+
+    # Color the date (older = dimmer)
+    date_color="${BLUE}${date}${RESET}"
+
+    # Print row
+    if $show_parent; then
+        printf "${date_color}  %-48b ${DIM}%-30s${RESET} ${message}\n" "$branch_color" "$parent"
+    else
+        printf "${date_color}  %-48b ${message}\n" "$branch_color"
+    fi
+done
+
+echo ""
+printf "${DIM}Total branches: $(git branch | wc -l | tr -d ' ')${RESET}\n"

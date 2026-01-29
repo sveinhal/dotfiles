@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+#
+# go2xcframework — build a Go package (cgo, -buildmode=c-archive) into an .xcframework
+# Defaults: build current directory for iOS device, iOS simulator, macOS, Mac Catalyst (arm64+x86_64)
+#
+# Example:
+#   go2xcframework
+#   go2xcframework --name MyLib --module MyLib --out ./Frameworks
+#   go2xcframework --package ./cmd/mylib --tags "netgo" --min-ios 16.0 --min-macos 13.0
+#   go2xcframework --skip-catalyst
+#
+set -euo pipefail
+
+# ---------- defaults ----------
+NAME=""                           # base name for lib (lib${NAME}.a) and xcframework folder
+MODULE_NAME=""                    # module.modulemap name; default -> ${NAME}
+PACKAGE="."                       # Go package path (relative or absolute); default current dir
+OUTDIR="."                        # default: ./${NAME}.xcframework
+MIN_IOS="16.0"
+MIN_MACOS="13.0"
+BUILD_TAGS=""
+FORCE_REBUILD=0
+DO_IOS=1
+DO_SIM=1
+DO_MACOS=1
+DO_CATALYST=1
+WITH_MACOS_X86_64=0              # off by default (arm64 only), toggle via --macos-x86_64
+LINK_RESOLV=0
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [options]
+
+Options:
+  --name NAME             Basenavn for lib og .xcframework (default: ${NAME})
+  --module NAME           Modulnavn i module.modulemap (default: NAME)
+  --package PATH          Go-pakke å bygge (default: .)
+  --out DIR               Målmappe for .xcframework (default: ./build)
+  --tags "tag1,tag2"      go build -tags
+  --min-ios N.M           Minimum iOS versjon (default: ${MIN_IOS})
+  --min-macos N.M         Minimum macOS versjon (default: ${MIN_MACOS})
+  --macos-x86_64          Bygg også macOS x86_64 og lag universal for macOS
+  --no-ios                Skipp iOS device
+  --no-sim                Skipp iOS simulator
+  --no-macos              Skipp macOS
+  --no-catalyst           Skipp Mac Catalyst
+  --link-resolv           Legg til -lresolv i CGO_LDFLAGS (noen prosjekter trenger dette)
+  --force                 Tving rebuild selv om up-to-date
+  -h, --help              Denne hjelpen
+
+Miljøvariabler:
+  GO_CMD_PATH,                 Pek til spesifikk go-binær hvis ønskelig.
+  CFLAGS_EXTRA, LDFLAGS_EXTRA  Ekstra flagg til cgo (appendes alle plattformer)
+EOF
+}
+
+# ---------- parse args ----------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name) NAME="$2"; shift 2;;
+    --module) MODULE_NAME="$2"; shift 2;;
+    --package) PACKAGE="$2"; shift 2;;
+    --out) OUTDIR="$2"; shift 2;;
+    --tags) BUILD_TAGS="$2"; shift 2;;
+    --min-ios) MIN_IOS="$2"; shift 2;;
+    --min-macos) MIN_MACOS="$2"; shift 2;;
+    --no-ios) DO_IOS=0; shift;;
+    --no-sim) DO_SIM=0; shift;;
+    --no-macos) DO_MACOS=0; shift;;
+    --no-catalyst) DO_CATALYST=0; shift;;
+    --macos-x86_64) WITH_MACOS_X86_64=1; shift;;
+    --link-resolv) LINK_RESOLV=1; shift;;
+    --force) FORCE_REBUILD=1; shift;;
+    -h|--help) usage; exit 0;;
+    *) echo "Ukjent flagg: $1"; usage; exit 1;;
+  esac
+done
+
+kebab_to_camel() {
+    local input="$1"
+    local output=""
+    local IFS='-'
+    for word in $input; do
+        output="${output}$(printf "%s" "${word:0:1}" | tr '[:lower:]' '[:upper:]')${word:1}"
+    done
+    printf "%s" "$output"
+}
+
+PKG_ABS="$(realpath "$PACKAGE")"
+NAME=${NAME:-$(kebab_to_camel $(basename "${PKG_ABS}"))}
+MODULE_NAME=${MODULE_NAME:-$NAME}
+mkdir -p "$OUTDIR"
+
+XCFRAMEWORK_PATH="$(realpath "${OUTDIR}")/${NAME}.xcframework"
+
+# ---------- locate go ----------
+GO_CMD="${GO_CMD_PATH:-}"
+if [[ -z "${GO_CMD}" ]]; then
+  if [[ -x "/opt/homebrew/bin/go" ]]; then GO_CMD="/opt/homebrew/bin/go"
+  elif [[ -x "/usr/local/bin/go" ]]; then GO_CMD="/usr/local/bin/go"
+  elif [[ -x "/usr/local/go/bin/go" ]]; then GO_CMD="/usr/local/go/bin/go"
+  else GO_CMD="go"; fi
+fi
+if ! command -v "${GO_CMD}" >/dev/null 2>&1; then
+  echo "❌ Fant ikke go-binær (${GO_CMD}). Sett GO_CMD_PATH eller installer Go." >&2
+  exit 1
+fi
+
+# ---------- xcrun helpers ----------
+cc() { xcrun --sdk "$1" -f clang; }
+sdkroot() { xcrun --sdk "$1" --show-sdk-path; }
+
+# ---------- temp dirs & caches ----------
+TMPDIR="$(mktemp -d -t go2xcframework.XXXXXX)"
+trap 'rm -rf "${TMPDIR}" >/dev/null 2>&1 || true' EXIT
+export GOCACHE="${TMPDIR}/go-cache"
+export GOMODCACHE="${TMPDIR}/go-mod-cache"
+mkdir -p "${GOCACHE}" "${GOMODCACHE}"
+
+LIBPREFIX="lib${NAME}"
+
+declare -a BUILD_FLAGS=(-buildmode=c-archive)
+if [[ -n "${BUILD_TAGS}" ]]; then
+  BUILD_FLAGS+=( -tags "${BUILD_TAGS}" )
+fi
+
+# optional -lresolv
+LDFLAGS_EXTRA_ALL="${LDFLAGS_EXTRA:-}"
+if [[ "${LINK_RESOLV}" -eq 1 ]]; then
+  LDFLAGS_EXTRA_ALL="${LDFLAGS_EXTRA_ALL} -lresolv"
+fi
+CFLAGS_EXTRA_ALL="${CFLAGS_EXTRA:-}"
+
+echo "🔨 go2xcframework"
+echo "   Go:            $(${GO_CMD} version)"
+echo "   Package:       ${PKG_ABS}"
+echo "   Output:        ${XCFRAMEWORK_PATH}"
+echo "   Tags:          ${BUILD_TAGS:-<none>}"
+echo "   Min iOS/macOS: ${MIN_IOS} / ${MIN_MACOS}"
+
+# ---------- up-to-date check ----------
+needs_rebuild=1
+if [[ ${FORCE_REBUILD} -eq 0 && -f "${XCFRAMEWORK_PATH}/Info.plist" ]]; then
+  xc_ts=$(stat -f %m "${XCFRAMEWORK_PATH}/Info.plist" 2>/dev/null || echo 0)
+  go_ts=$(find "${PKG_ABS}" -name "*.go" -type f -exec stat -f %m {} \; 2>/dev/null | sort -nr | head -1 || echo 0)
+  if [[ "${go_ts}" -le "${xc_ts}" ]]; then
+    needs_rebuild=0
+  fi
+fi
+
+if [[ ${needs_rebuild} -eq 0 ]]; then
+  echo "✅ Allerede oppdatert: ${XCFRAMEWORK_PATH}"
+  exit 0
+fi
+
+# ---------- compile helper ----------
+gobuild() {
+  local os="$1" arch="$2" sdk="$3" target="$4" out="$5" minflag_c="$6" minflag_l="$7"
+  echo "   Building ${os}/${arch} (${sdk} target=${target}) ..."
+  (
+    cd "${PKG_ABS}"
+    CGO_ENABLED=1 GOOS="${os}" GOARCH="${arch}" \
+    CC="$(cc "${sdk}")" SDKROOT="$(sdkroot "${sdk}")" \
+    CGO_CFLAGS="-target ${target} -isysroot $(sdkroot "${sdk}") ${minflag_c} ${CFLAGS_EXTRA_ALL}" \
+    CGO_LDFLAGS="-target ${target} -isysroot $(sdkroot "${sdk}") ${minflag_l} ${LDFLAGS_EXTRA_ALL}" \
+    "${GO_CMD}" build "${BUILD_FLAGS[@]}" -o "${out}" .
+  )
+}
+
+ART_DIR="${TMPDIR}/artifacts"
+mkdir -p "${ART_DIR}"
+
+HEAD_PICK="" # header file to copy later
+
+# macOS
+if [[ ${DO_MACOS} -eq 1 ]]; then
+  # arm64
+  gobuild "darwin" "arm64" "macosx" "arm64-apple-macos${MIN_MACOS}" \
+    "${ART_DIR}/${LIBPREFIX}_mac_arm64.a" "" ""
+  [[ -z "${HEAD_PICK}" ]] && HEAD_PICK="${ART_DIR}/${LIBPREFIX}_mac_arm64.h"
+  # optional x86_64
+  if [[ ${WITH_MACOS_X86_64} -eq 1 ]]; then
+    gobuild "darwin" "amd64" "macosx" "x86_64-apple-macos${MIN_MACOS}" \
+      "${ART_DIR}/${LIBPREFIX}_mac_x86_64.a" "" ""
+    echo "   Creating macOS universal (arm64+x86_64)…"
+    lipo -create \
+      "${ART_DIR}/${LIBPREFIX}_mac_arm64.a" \
+      "${ART_DIR}/${LIBPREFIX}_mac_x86_64.a" \
+      -output "${ART_DIR}/${LIBPREFIX}_mac_universal.a"
+  fi
+fi
+
+# iOS device (arm64)
+if [[ ${DO_IOS} -eq 1 ]]; then
+  gobuild "ios" "arm64" "iphoneos" "arm64-apple-ios${MIN_IOS}" \
+    "${ART_DIR}/${LIBPREFIX}_ios_arm64.a" "" ""
+  [[ -z "${HEAD_PICK}" ]] && HEAD_PICK="${ART_DIR}/${LIBPREFIX}_ios_arm64.h"
+fi
+
+# iOS Simulator (arm64)
+if [[ ${DO_SIM} -eq 1 ]]; then
+  gobuild "ios" "arm64" "iphonesimulator" "arm64-apple-ios${MIN_IOS}-simulator" \
+    "${ART_DIR}/${LIBPREFIX}_sim_arm64.a" "-mios-simulator-version-min=${MIN_IOS}" "-mios-simulator-version-min=${MIN_IOS}"
+  [[ -z "${HEAD_PICK}" ]] && HEAD_PICK="${ART_DIR}/${LIBPREFIX}_sim_arm64.h"
+fi
+
+# Mac Catalyst (arm64 + x86_64 -> universal)
+if [[ ${DO_CATALYST} -eq 1 ]]; then
+  # arm64
+  gobuild "ios" "arm64" "macosx" "arm64-apple-ios${MIN_IOS}-macabi" \
+    "${ART_DIR}/${LIBPREFIX}_catalyst_arm64.a" "" ""
+  [[ -z "${HEAD_PICK}" ]] && HEAD_PICK="${ART_DIR}/${LIBPREFIX}_catalyst_arm64.h"
+  # x86_64
+  gobuild "ios" "amd64" "macosx" "x86_64-apple-ios${MIN_IOS}-macabi" \
+    "${ART_DIR}/${LIBPREFIX}_catalyst_x86_64.a" "" ""
+  echo "   Creating Mac Catalyst universal (arm64+x86_64)…"
+  lipo -create \
+    "${ART_DIR}/${LIBPREFIX}_catalyst_arm64.a" \
+    "${ART_DIR}/${LIBPREFIX}_catalyst_x86_64.a" \
+    -output "${ART_DIR}/${LIBPREFIX}_catalyst_universal.a"
+fi
+
+# ---------- headers & modulemap ----------
+HEADER_DIR="${TMPDIR}/include"
+mkdir -p "${HEADER_DIR}"
+if [[ -z "${HEAD_PICK}" || ! -f "${HEAD_PICK}" ]]; then
+  echo "❌ Fant ikke generert header (*.h) fra go build." >&2
+  exit 1
+fi
+cp -f "${HEAD_PICK}" "${HEADER_DIR}/${LIBPREFIX}.h"
+
+cat > "${HEADER_DIR}/module.modulemap" <<EOF
+module ${MODULE_NAME} {
+  header "${LIBPREFIX}.h"
+  export *
+}
+EOF
+
+# ---------- create xcframework ----------
+echo "   Creating XCFramework…"
+rm -rf "${XCFRAMEWORK_PATH}"
+
+XCARGS=()
+# macOS
+if [[ ${DO_MACOS} -eq 1 ]]; then
+  if [[ ${WITH_MACOS_X86_64} -eq 1 ]]; then
+    XCARGS+=( -library "${ART_DIR}/${LIBPREFIX}_mac_universal.a" -headers "${HEADER_DIR}" )
+  else
+    XCARGS+=( -library "${ART_DIR}/${LIBPREFIX}_mac_arm64.a" -headers "${HEADER_DIR}" )
+  fi
+fi
+# iOS device
+[[ ${DO_IOS} -eq 1 ]] && XCARGS+=( -library "${ART_DIR}/${LIBPREFIX}_ios_arm64.a" -headers "${HEADER_DIR}" )
+# iOS simulator
+[[ ${DO_SIM} -eq 1 ]] && XCARGS+=( -library "${ART_DIR}/${LIBPREFIX}_sim_arm64.a" -headers "${HEADER_DIR}" )
+# Catalyst
+[[ ${DO_CATALYST} -eq 1 ]] && XCARGS+=( -library "${ART_DIR}/${LIBPREFIX}_catalyst_universal.a" -headers "${HEADER_DIR}" )
+
+if [[ ${#XCARGS[@]} -eq 0 ]]; then
+  echo "❌ Ingen plattformer valgt." >&2
+  exit 1
+fi
+
+xcodebuild -create-xcframework "${XCARGS[@]}" -output "${XCFRAMEWORK_PATH}"
+
+echo "✅ Bygget ${XCFRAMEWORK_PATH}"
+du -sh "${XCFRAMEWORK_PATH}" || true

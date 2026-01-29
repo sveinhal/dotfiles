@@ -1,0 +1,259 @@
+#!/bin/zsh
+# git-stashes.zsh - List git stashes with details
+# Usage: ./git-stashes.zsh [-f] [-p] [-d pattern [--force]] [filter]
+#   -f    Show files changed in each stash
+#   -p    Show distance from HEAD (commits since stash)
+#   -d    Delete stashes matching pattern (dry-run by default)
+
+set -e
+
+# Parse arguments
+show_files=false
+show_parent=false
+delete_pattern=""
+force_delete=false
+filter=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -f|--files)
+            show_files=true
+            shift
+            ;;
+        -p|--parent)
+            show_parent=true
+            shift
+            ;;
+        -d|--delete)
+            shift
+            if [[ $# -eq 0 || "$1" == -* ]]; then
+                echo "${RED}Error: -d requires a pattern argument${RESET}" >&2
+                exit 1
+            fi
+            delete_pattern="$1"
+            shift
+            ;;
+        --force)
+            force_delete=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [-f] [-p] [-d pattern [--force]] [filter]"
+            echo "  -f, --files   Show files changed in each stash"
+            echo "  -p, --parent  Show distance from HEAD (commits since stash)"
+            echo "  -d, --delete  Delete stashes matching pattern (dry-run by default)"
+            echo "  --force       Actually delete (required with -d)"
+            echo "  filter        Filter stashes by message pattern"
+            exit 0
+            ;;
+        *)
+            filter="$1"
+            shift
+            ;;
+    esac
+done
+
+# ANSI colors
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly MAGENTA='\033[0;35m'
+readonly CYAN='\033[0;36m'
+readonly WHITE='\033[0;37m'
+readonly BOLD='\033[1m'
+readonly DIM='\033[2m'
+readonly RESET='\033[0m'
+readonly CLEAR_LINE='\033[2K'
+
+# Spinner
+readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+spinner_idx=0
+
+show_spinner() {
+    local msg="$1"
+    printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$spinner_idx]} %s${RESET}" "$msg" >&2
+    spinner_idx=$(( (spinner_idx + 1) % ${#SPINNER_CHARS[@]} ))
+}
+
+clear_spinner() {
+    printf "${CLEAR_LINE}\r" >&2
+}
+
+# Check if we're in a git repo
+if ! git rev-parse --git-dir &>/dev/null; then
+    echo "${RED}Error: Not a git repository${RESET}" >&2
+    exit 1
+fi
+
+# Check if there are any stashes
+stash_count=$(git stash list 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$stash_count" -eq 0 ]]; then
+    echo "${DIM}No stashes found${RESET}"
+    exit 0
+fi
+
+# Delete mode
+if [[ -n "$delete_pattern" ]]; then
+    # Find matching stashes (collect refs in reverse order for safe deletion)
+    matching_refs=()
+    while IFS='|' read -r stash_ref datetime message; do
+        if [[ "$message" =~ "$delete_pattern" ]]; then
+            matching_refs+=("$stash_ref")
+        fi
+    done < <(git stash list --format='%gd|%ci|%s')
+
+    if [[ ${#matching_refs[@]} -eq 0 ]]; then
+        echo "${DIM}No stashes matching '${delete_pattern}'${RESET}"
+        exit 0
+    fi
+
+    # Show what will be deleted
+    echo "${BOLD}Stashes matching '${delete_pattern}':${RESET}"
+    echo ""
+    for ref in "${matching_refs[@]}"; do
+        msg=$(git stash list --format='%s' | sed -n "$((${ref//[^0-9]/} + 1))p")
+        if $force_delete; then
+            printf "  ${RED}✗${RESET} ${CYAN}%-12s${RESET} %s\n" "$ref" "$msg"
+        else
+            printf "  ${YELLOW}○${RESET} ${CYAN}%-12s${RESET} %s\n" "$ref" "$msg"
+        fi
+    done
+    echo ""
+
+    if $force_delete; then
+        # Delete from highest index to lowest (reverse order)
+        for ref in $(printf '%s\n' "${matching_refs[@]}" | sort -t'{' -k2 -rn); do
+            show_spinner "Dropping ${ref}..."
+            git stash drop "$ref" >/dev/null 2>&1
+        done
+        clear_spinner
+        printf "${GREEN}✓ Deleted %d stash(es)${RESET}\n" "${#matching_refs[@]}"
+    else
+        printf "${DIM}Dry-run: use --force to actually delete${RESET}\n"
+    fi
+    exit 0
+fi
+
+# Header
+if $show_parent; then
+    printf "${BOLD}%-12s %-12s %-25s %-8s %s${RESET}\n" "STASH" "DATE" "BRANCH" "+HEAD" "MESSAGE"
+    printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..110})"
+else
+    printf "${BOLD}%-12s %-12s %-25s %s${RESET}\n" "STASH" "DATE" "BRANCH" "MESSAGE"
+    printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..100})"
+fi
+
+# Get stashes
+git stash list --format='%gd|%ci|%s' | while IFS='|' read -r stash_ref datetime message; do
+    # Parse the message to extract branch name
+    # Format is usually: "WIP on branch: commit message" or "On branch: commit message"
+    if [[ "$message" =~ ^(WIP on |On )([^:]+):\ (.*)$ ]]; then
+        branch="${match[2]}"
+        stash_msg="${match[3]}"
+    else
+        branch="-"
+        stash_msg="$message"
+    fi
+
+    # Apply filter if provided
+    if [[ -n "$filter" ]]; then
+        if [[ ! "$stash_msg" =~ "$filter" && ! "$branch" =~ "$filter" ]]; then
+            continue
+        fi
+    fi
+
+    # Extract just the date part (YYYY-MM-DD)
+    date="${datetime:0:10}"
+
+    # Truncate message if too long
+    if [[ ${#stash_msg} -gt 45 ]]; then
+        stash_msg="${stash_msg:0:42}..."
+    fi
+
+    # Truncate branch if too long
+    if [[ ${#branch} -gt 23 ]]; then
+        branch="${branch:0:20}..."
+    fi
+
+    # Extract stash number for coloring
+    stash_num="${stash_ref//[^0-9]/}"
+
+    # Color the stash reference (newer = brighter)
+    if [[ "$stash_num" -eq 0 ]]; then
+        stash_color="${GREEN}${BOLD}${stash_ref}${RESET}"
+    elif [[ "$stash_num" -lt 3 ]]; then
+        stash_color="${CYAN}${stash_ref}${RESET}"
+    elif [[ "$stash_num" -lt 10 ]]; then
+        stash_color="${WHITE}${stash_ref}${RESET}"
+    else
+        stash_color="${DIM}${stash_ref}${RESET}"
+    fi
+
+    # Color the date
+    date_color="${BLUE}${date}${RESET}"
+
+    # Color the branch
+    if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        branch_color="${MAGENTA}${branch}${RESET}"
+    elif [[ "$branch" =~ ^(feature|feat)/ ]]; then
+        branch_color="${CYAN}${branch}${RESET}"
+    elif [[ "$branch" =~ ^(fix|bugfix|hotfix)/ ]]; then
+        branch_color="${RED}${branch}${RESET}"
+    else
+        branch_color="${WHITE}${branch}${RESET}"
+    fi
+
+    # Calculate distance from HEAD if requested
+    distance_str=""
+    if $show_parent; then
+        show_spinner "Calculating distance for ${stash_ref}..."
+
+        # Get the parent commit of the stash (the commit that was HEAD when stashing)
+        stash_parent=$(git rev-parse "${stash_ref}^1" 2>/dev/null) || stash_parent=""
+
+        if [[ -n "$stash_parent" ]]; then
+            # Count commits from stash parent to current HEAD
+            distance=$(git rev-list --count "${stash_parent}..HEAD" 2>/dev/null) || distance="?"
+
+            # Color based on distance
+            if [[ "$distance" == "0" ]]; then
+                distance_str="${GREEN}+${distance}${RESET}"
+            elif [[ "$distance" -lt 10 ]]; then
+                distance_str="${CYAN}+${distance}${RESET}"
+            elif [[ "$distance" -lt 50 ]]; then
+                distance_str="${YELLOW}+${distance}${RESET}"
+            else
+                distance_str="${RED}+${distance}${RESET}"
+            fi
+        else
+            distance_str="${DIM}?${RESET}"
+        fi
+
+        clear_spinner
+    fi
+
+    # Print row
+    if $show_parent; then
+        printf "%-20b ${date_color} %-33b %-16b ${DIM}%s${RESET}\n" "$stash_color" "$branch_color" "$distance_str" "$stash_msg"
+    else
+        printf "%-20b ${date_color} %-33b ${DIM}%s${RESET}\n" "$stash_color" "$branch_color" "$stash_msg"
+    fi
+
+    # Show files if requested
+    if $show_files; then
+        git stash show "$stash_ref" --name-status 2>/dev/null | while read -r status file; do
+            case "$status" in
+                M) file_color="${YELLOW}" ;;
+                A) file_color="${GREEN}" ;;
+                D) file_color="${RED}" ;;
+                *) file_color="${WHITE}" ;;
+            esac
+            printf "             ${DIM}│${RESET} ${file_color}%s${RESET} %s\n" "$status" "$file"
+        done
+        echo ""
+    fi
+done
+
+echo ""
+printf "${DIM}Total stashes: %s${RESET}\n" "$stash_count"
