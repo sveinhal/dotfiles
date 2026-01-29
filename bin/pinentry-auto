@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Pinentry wrapper that selects the best available pinentry for the current environment
+
+# macOS with GUI available - prefer pinentry-mac
+if [[ "$(uname)" == "Darwin" ]]; then
+    if [[ -x /opt/homebrew/bin/pinentry-mac ]]; then
+        exec /opt/homebrew/bin/pinentry-mac "$@"
+    elif [[ -x /usr/local/bin/pinentry-mac ]]; then
+        exec /usr/local/bin/pinentry-mac "$@"
+    fi
+fi
+
+# Linux with GUI - try pinentry-gnome3 or pinentry-qt
+if [[ -n "$DISPLAY" || -n "$WAYLAND_DISPLAY" ]]; then
+    for gui_pinentry in pinentry-gnome3 pinentry-qt pinentry-gtk-2; do
+        if command -v "$gui_pinentry" &>/dev/null; then
+            exec "$gui_pinentry" "$@"
+        fi
+    done
+fi
+
+# TTY available - use curses
+if [[ -t 0 || -n "$GPG_TTY" ]]; then
+    for tty_pinentry in pinentry-curses pinentry-tty; do
+        if command -v "$tty_pinentry" &>/dev/null; then
+            exec "$tty_pinentry" "$@"
+        fi
+    done
+fi
+
+# Fallback to whatever pinentry is available
+exec pinentry "$@"
