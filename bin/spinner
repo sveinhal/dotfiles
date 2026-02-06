@@ -1,0 +1,37 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: spinner <command> [args...]" >&2
+    exit 1
+fi
+
+readonly DIM='\033[2m'
+readonly RESET='\033[0m'
+readonly CLEAR_LINE='\033[2K'
+readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+# Run command in background, capturing output
+tmpout=$(mktemp)
+tmperr=$(mktemp)
+trap 'rm -f "$tmpout" "$tmperr"' EXIT
+
+"$@" >"$tmpout" 2>"$tmperr" &
+cmd_pid=$!
+
+spinner_idx=1
+while kill -0 "$cmd_pid" 2>/dev/null; do
+    printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$spinner_idx]} %s${RESET}" "$*" >&2
+    spinner_idx=$(( (spinner_idx % ${#SPINNER_CHARS[@]}) + 1 ))
+    sleep 0.08
+done
+
+printf "${CLEAR_LINE}\r" >&2
+
+wait "$cmd_pid"
+exit_code=$?
+
+cat "$tmpout"
+cat "$tmperr" >&2
+
+exit "$exit_code"
