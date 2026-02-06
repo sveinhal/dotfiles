@@ -1,15 +1,41 @@
 #!/usr/bin/env zsh
 set -uo pipefail
 
-if [[ $# -eq 0 ]]; then
-    echo "Usage: spinner <command> [args...]" >&2
-    exit 1
-fi
-
 readonly DIM='\033[2m'
 readonly RESET='\033[0m'
 readonly CLEAR_LINE='\033[2K'
-readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+typeset -A styles
+styles=(
+    dots    '⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏'
+    star    '· ✢ ✶ ✳ ✻ ✳ ✶ ✢'
+    moon    '🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘'
+    clock   '🕐 🕑 🕒 🕓 🕔 🕕 🕖 🕗 🕘 🕙 🕚 🕛'
+    arrow   '← ↖ ↑ ↗ → ↘ ↓ ↙'
+    box     '▖ ▘ ▝ ▗'
+)
+
+style=dots
+while getopts "s:" opt; do
+    case $opt in
+        s) style=$OPTARG ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -eq 0 ]]; then
+    echo "Usage: spinner [-s style] <command> [args...]" >&2
+    echo "Styles: ${(kj:, :)styles}" >&2
+    exit 1
+fi
+
+if [[ -z "${styles[$style]:-}" ]]; then
+    echo "Unknown style: $style" >&2
+    echo "Available: ${(kj:, :)styles}" >&2
+    exit 1
+fi
+
+readonly SPINNER_CHARS=( ${=styles[$style]} )
 
 fifo=$(mktemp -u)
 mkfifo "$fifo"
