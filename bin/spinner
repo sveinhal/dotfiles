@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-set -euo pipefail
+set -uo pipefail
 
 if [[ $# -eq 0 ]]; then
     echo "Usage: spinner <command> [args...]" >&2
@@ -11,27 +11,45 @@ readonly RESET='\033[0m'
 readonly CLEAR_LINE='\033[2K'
 readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
-# Run command in background, capturing output
-tmpout=$(mktemp)
-tmperr=$(mktemp)
-trap 'rm -f "$tmpout" "$tmperr"' EXIT
+fifo=$(mktemp -u)
+mkfifo "$fifo"
 
-"$@" >"$tmpout" 2>"$tmperr" &
+cleanup() {
+    exec 3<&- 2>/dev/null
+    printf "${CLEAR_LINE}\r" >&2
+    rm -f "$fifo"
+}
+trap cleanup EXIT
+trap 'kill "$cmd_pid" 2>/dev/null; exit 130' INT TERM
+
+"$@" >"$fifo" 2>&1 &
 cmd_pid=$!
+exec 3<"$fifo"
 
 spinner_idx=1
-while kill -0 "$cmd_pid" 2>/dev/null; do
+
+while true; do
+    # read -t 0.08 doubles as both "check for output" and spinner delay
+    if IFS= read -r -t 0.08 -u 3 line; then
+        printf "${CLEAR_LINE}\r%s\n" "$line" >&2
+        # Drain any immediately available lines
+        while IFS= read -r -t 0 -u 3 line; do
+            printf "%s\n" "$line" >&2
+        done
+    elif ! kill -0 "$cmd_pid" 2>/dev/null; then
+        # Command finished — drain remaining output
+        while IFS= read -r -u 3 line; do
+            printf "${CLEAR_LINE}\r%s\n" "$line" >&2
+        done
+        break
+    fi
+
     printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$spinner_idx]} %s${RESET}" "$*" >&2
     spinner_idx=$(( (spinner_idx % ${#SPINNER_CHARS[@]}) + 1 ))
-    sleep 0.08
 done
 
 printf "${CLEAR_LINE}\r" >&2
+exec 3<&-
 
 wait "$cmd_pid"
-exit_code=$?
-
-cat "$tmpout"
-cat "$tmperr" >&2
-
-exit "$exit_code"
+exit $?
