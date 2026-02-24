@@ -1,11 +1,50 @@
-#!/bin/sh
+#!/bin/zsh
 # To determine if a branch is squash-merged, git-delete-squashed creates
 # a temporary dangling squashed commit with git commit-tree. Then it uses
-# git cherry to check if the squashed commit has already been applied to 
+# git cherry to check if the squashed commit has already been applied to
 # the current branch. If so, it deletes the branch. Without -f, the
 # command only dry runs.
 #
 # Based on https://github.com/not-an-aardvark/git-delete-squashed
+
+readonly DIM='\033[2m'
+readonly RESET='\033[0m'
+readonly CLEAR_LINE='\033[2K'
+readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+SPINNER_MSGFILE=$(mktemp)
+SPINNER_PID=0
+
+_spinner_loop() {
+    local idx=1
+    while true; do
+        local msg=$(cat "$SPINNER_MSGFILE" 2>/dev/null)
+        printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$idx]} %s${RESET}" "$msg" >&2
+        idx=$(( idx % ${#SPINNER_CHARS[@]} + 1 ))
+        sleep 0.05
+    done
+}
+
+start_spinner() {
+    _spinner_loop &
+    SPINNER_PID=$!
+}
+
+stop_spinner() {
+    if [[ $SPINNER_PID -ne 0 ]]; then
+        kill $SPINNER_PID 2>/dev/null
+        wait $SPINNER_PID 2>/dev/null
+        SPINNER_PID=0
+    fi
+    printf "${CLEAR_LINE}\r" >&2
+    rm -f "$SPINNER_MSGFILE"
+}
+
+spinner_msg() {
+    echo "$1" > "$SPINNER_MSGFILE"
+}
+
+trap stop_spinner EXIT
 
 usage() {
     echo "usage: git delete-squashed [-f|--force]"
@@ -13,7 +52,7 @@ usage() {
 
 while [ "$1" != "" ]; do
     case $1 in
-    -f | --force) 
+    -f | --force)
         FORCE=true
         ;;
     -h | --help)
@@ -24,13 +63,21 @@ while [ "$1" != "" ]; do
 done
 
 BASE_BRANCH=$(git symbolic-ref --short HEAD)
-git for-each-ref refs/heads/ "--format=%(refname:short)" | while read BRANCH; do 
+start_spinner
+git for-each-ref refs/heads/ "--format=%(refname:short) %(tree)" | while read BRANCH TREE; do
+    [[ "$BRANCH" == "$BASE_BRANCH" ]] && continue
+    spinner_msg "Checking $BRANCH"
     MERGE_BASE=$(git merge-base $BASE_BRANCH $BRANCH) || continue
-    if [[ $(git cherry $BASE_BRANCH $(git commit-tree $(git rev-parse $BRANCH\^{tree}) -p $MERGE_BASE -m _)) == "-"* ]]; then
+    SQUASH=$(git commit-tree $TREE -p $MERGE_BASE -m _)
+    if [[ $(git cherry $BASE_BRANCH $SQUASH) == "-"* ]]; then
+        stop_spinner
         if [ "$FORCE" = true ]; then
             git branch -D $BRANCH
         else
             echo "git branch -D $BRANCH"
         fi
+        SPINNER_MSGFILE=$(mktemp)
+        start_spinner
     fi
 done
+stop_spinner
