@@ -55,8 +55,8 @@ exec 3<"$fifo"
 spinner_idx=1
 
 while true; do
-    # read -t 0.08 doubles as both "check for output" and spinner delay
-    if IFS= read -r -t 0.08 -u 3 line; then
+    # read -t 0.05 doubles as both "check for output" and spinner delay
+    if IFS= read -r -t 0.05 -u 3 line; then
         printf "${CLEAR_LINE}\r%s\n" "$line" >&2
         # Drain any immediately available lines
         while IFS= read -r -t 0 -u 3 line; do

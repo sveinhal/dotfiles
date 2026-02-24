@@ -44,12 +44,12 @@ readonly MOVE_UP='\033[1A'
 
 # Spinner
 readonly SPINNER_CHARS=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-spinner_idx=0
+spinner_idx=1
 
 show_spinner() {
     local msg="$1"
     printf "${CLEAR_LINE}\r${DIM}${SPINNER_CHARS[$spinner_idx]} %s${RESET}" "$msg" >&2
-    spinner_idx=$(( (spinner_idx + 1) % ${#SPINNER_CHARS[@]} ))
+    spinner_idx=$(( (spinner_idx % ${#SPINNER_CHARS[@]}) + 1 ))
 }
 
 clear_spinner() {
