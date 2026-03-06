@@ -6,6 +6,9 @@ export PATH=$DOTFILESDIR/bin:$PATH
 autoload -U compinit
 compinit
 
-# source every .zsh and .sh file in this rep (except in bin)
+# source every .zsh and .sh file in this repo (except in bin)
+# (oe['REPLY=${REPLY:t}']) sorts by filename, so 000-foo.sh loads before 999-bar.zsh
 setopt extendedglob
-for config_file ($DOTFILESDIR/**/^bin/*.(zsh|sh)) source $config_file
+for config_file in $DOTFILESDIR/**/^bin/*.(zsh|sh)(oe['REPLY=${REPLY:t}']); do
+   source $config_file
+done
