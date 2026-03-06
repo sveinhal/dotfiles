@@ -44,7 +44,7 @@
 	autoSetupRemote = true
 [diff]
 	tool = difftastic
-	external = difft
+	# external diff is set conditionally via git/difftastic.sh
 [difftool "difftastic"]
 	cmd = difft "$LOCAL" "$REMOTE"
 [difftool]
